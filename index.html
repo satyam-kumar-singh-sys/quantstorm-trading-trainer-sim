@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuantStorm R2 Trainer — mock exchange</title>
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<header>
+  <h1>QS·R2 TRAINER</h1>
+  <div class="stat"><b id="hClock">0:00</b><span>time left</span></div>
+  <div class="stat"><b id="hPnl">0.0</b><span>P&amp;L (marked)</span></div>
+  <div class="stat"><b id="hRank">–</b><span>rank</span></div>
+  <div class="stat"><b id="hLevel">L1</b><span>level</span></div>
+  <div class="row">
+    <select id="level" style="width:auto">
+      <option value="L0">Level 0 — tutorial (guided)</option>
+      <option value="L1">Level 1 — one stock, market-make</option>
+      <option value="L2">Level 2 — 3 stocks + ETF</option>
+      <option value="L3">Level 3 — + options on A</option>
+      <option value="L4">Level 4 — full pit (hard)</option>
+    </select>
+    <input id="seed" type="number" placeholder="seed" style="width:90px" title="seed (blank = random)">
+    <button id="btnNew" class="primary">New session</button>
+    <button id="btnPause">Pause</button>
+    <select id="speed" style="width:auto"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+    <button id="btnSettle" title="End the session now and settle">Settle now</button>
+  </div>
+  <div class="tabs">
+    <button data-tab="trade" class="active">Trade</button>
+    <button data-tab="drills">Drills</button>
+    <button data-tab="guide">Guide</button>
+  </div>
+</header>
+
+<main id="tab-trade">
+  <div class="col">
+    <div class="panel">
+      <h2>Instruments <span class="m">click a row to select</span></h2>
+      <table id="watch"><thead><tr><th>inst</th><th>bid</th><th>ask</th><th>last</th><th>my fair</th><th>±sd</th><th>pos</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h2><span>Order book — <span id="selName" class="acc">–</span></span><span class="m" id="selInfo"></span></h2>
+      <div class="book"><div class="bids" id="bookBids"></div><div class="asks" id="bookAsks"></div></div>
+    </div>
+    <div class="panel">
+      <h2>Order ticket <span class="m"><span class="kbd">Enter</span> sends · <span class="kbd">Esc</span> cancels all</span></h2>
+      <div class="ticket">
+        <div><label>price (blank = market)</label><input id="tPrice" type="number" step="1"></div>
+        <div><label>qty</label><input id="tQty" type="number" step="1" value="1" min="1"></div>
+        <button id="tBuy" class="buy">BUY</button><button id="tSell" class="sell">SELL</button>
+      </div>
+      <div style="height:6px"></div>
+      <div class="ticket">
+        <div><label>quote centre</label><input id="qMid" type="number" step="0.5"></div>
+        <div><label>half-spread</label><input id="qHalf" type="number" step="0.5" value="2"></div>
+        <div><label>size / side</label><input id="qSize" type="number" step="1" value="2" min="1"></div>
+        <button id="qPost" title="Post a two-sided quote (replaces your quotes in this instrument)">QUOTE 2-SIDED</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="btnCancelBid" class="sm">Cancel bid orders</button>
+        <button id="btnCancelAsk" class="sm">Cancel ask orders</button>
+        <button id="btnCancelInst" class="sm">Cancel mine in this inst</button>
+        <button id="btnCancelAll" class="sm">Cancel ALL my orders</button>
+        <button id="btnFlatten" class="sm" title="Send market orders to close every position">Flatten all (market)</button>
+        <span id="msg" class="msg grow"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel hidden" id="tutPanel" style="border-color:var(--acc)">
+      <h2>Tutorial <span class="m" id="tutProgress"></span></h2>
+      <div id="tutSteps" style="margin-bottom:6px"></div>
+      <div id="tutText" style="font-family:system-ui,Segoe UI,Roboto,sans-serif;font-size:13px;line-height:1.5"></div>
+      <div id="tutExtra" class="tipbox hidden"></div>
+      <div class="row" style="margin-top:6px"><button class="sm" id="tutHint">Hint</button><button class="sm" id="tutWhy">Why does this matter?</button><button class="sm" id="tutSkip">Skip step</button></div>
+    </div>
+    <div class="panel">
+      <h2>Information <span class="m">blue = public, gold = your private tips</span></h2>
+      <div id="info"></div>
+    </div>
+    <div class="panel">
+      <h2>Fair-value help <span><label class="m" style="font-size:11px"><input type="checkbox" id="showFair" style="width:auto;vertical-align:middle"> show computed fair</label></span></h2>
+      <div id="fairHelp" class="m">Toggle to see the model fair value from your information (known cards + 7 per hidden card; options priced off the exact distribution). Levels 3–4 start with this off — practise estimating it yourself and type your estimate in the "your fair" boxes above.</div>
+    </div>
+    <div class="panel">
+      <h2>Relationship scanner <span><label class="m" style="font-size:11px"><input type="checkbox" id="showArb" style="width:auto;vertical-align:middle"> show alerts</label></span></h2>
+      <div id="arb" class="m">ETF vs basket and put–call parity checks. On, it tells you when a riskless trade exists; off, you must spot them yourself (the review tells you what you missed).</div>
+    </div>
+    <div class="panel">
+      <h2>Chart — <span id="chartName" class="acc">–</span> <span class="m">mid (white) · your-info fair (gold) · full-info fair (blue, after settle)</span></h2>
+      <canvas id="chart" width="600" height="140"></canvas>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <h2>Feed <span class="m">news · tips · your fills</span></h2>
+      <div id="feed" class="feed"></div>
+    </div>
+    <div class="panel">
+      <h2>My open orders</h2>
+      <table id="orders"><thead><tr><th>inst</th><th>side</th><th>px</th><th>qty</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Positions &amp; exposure <span class="m">delta = stock-equivalent exposure</span></h2>
+      <table id="positions"><thead><tr><th>inst</th><th>pos</th><th>mark</th><th>value</th></tr></thead><tbody></tbody></table>
+      <div id="deltas" class="m" style="margin-top:4px"></div>
+    </div>
+    <div class="panel">
+      <h2>Leaderboard <span class="m">identities revealed at settlement</span></h2>
+      <table id="lb"><tbody></tbody></table>
+    </div>
+  </div>
+</main>
+
+<section id="tab-drills" class="hidden"><div class="drill" id="drillRoot"></div></section>
+<section id="tab-guide" class="hidden"><div class="help panel" id="guideRoot" style="margin:12px auto"></div></section>
+
+<div id="review" class="modal hidden"><div class="box" id="reviewBox"></div></div>
+
+<script src="src/engine.js"></script>
+<script src="src/drills.js"></script>
+<script src="src/tutorial.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
